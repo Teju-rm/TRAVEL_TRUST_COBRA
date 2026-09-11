@@ -1,0 +1,338 @@
+const testNameInput = document.getElementById('testName');
+const testDescInput = document.getElementById('testDescription');
+const testSuiteInput = document.getElementById('testSuite');
+const environmentInput = document.getElementById('environment');
+const startBtn = document.getElementById('startBtn');
+const stopBtn = document.getElementById('stopBtn');
+const statusDiv = document.getElementById('status');
+const resultsDiv = document.getElementById('results');
+const runDeltaBtn = document.getElementById('runDeltaBtn');
+const bridgeServerUrl = 'http://localhost:4000';
+
+let activeJobId = null;
+let deltaInventoryTotal = null;
+
+function setStatus(text, kind) {
+  statusDiv.textContent = text;
+  statusDiv.className = kind || '';
+}
+
+function getCoveragePercent(coveredFunctions, totalFunctions) {
+  return totalFunctions ? `${Math.round((coveredFunctions / totalFunctions) * 1000) / 10}%` : '0%';
+}
+
+function getExecutedFunctions(functions) {
+  return Array.isArray(functions) ? functions.filter((fn) => fn && fn.covered !== false) : [];
+}
+
+function formatFileUrl(url) {
+  if (!url) return 'Unknown file';
+  try {
+    const parsed = new URL(url);
+    return parsed.hostname === 'localhost' ? `${parsed.pathname}${parsed.search}` : url;
+  } catch {
+    return url;
+  }
+}
+
+function getSiteOrigin(url) {
+  try {
+    const origin = new URL(url).origin;
+    return origin === 'null' ? '' : origin;
+  } catch {
+    return '';
+  }
+}
+
+async function loadDeltaInventory(siteOrigin, environment) {
+  if (!siteOrigin || !environment) return;
+  try {
+    const response = await fetch(`${bridgeServerUrl}/delta-analysis?origin=${encodeURIComponent(siteOrigin)}&environment=${encodeURIComponent(environment)}`);
+    if (!response.ok) return;
+    const result = await response.json();
+    const total = Number(result?.delta?.inventory?.currentFunctions);
+    deltaInventoryTotal = Number.isFinite(total) && total > 0 ? total : null;
+  } catch {
+    deltaInventoryTotal = null;
+  }
+}
+
+async function clearLatestRecord() {
+  await chrome.storage.local.remove('latestCoverageResult');
+  resultsDiv.replaceChildren();
+  resultsDiv.classList.remove('show');
+}
+
+function renderResults(record) {
+  const files = Array.isArray(record?.files) ? record.files : [];
+  const actionCovered = files.reduce((sum, file) => sum + Number(file.coveredFunctions || 0), 0);
+  const observedTotal = files.reduce((sum, file) => sum + Number(file.totalFunctions || (file.functions || []).length), 0);
+  const actionTotal = deltaInventoryTotal || observedTotal;
+  resultsDiv.replaceChildren();
+  const header = document.createElement('div');
+  header.className = 'result-header';
+  const heading = document.createElement('h3');
+  heading.className = 'result-heading';
+  heading.textContent = `Action Coverage — ${record?.testName || 'Untitled scenario'}`;
+  const closeButton = document.createElement('button');
+  closeButton.className = 'close-results';
+  closeButton.type = 'button';
+  closeButton.title = 'Close latest coverage result';
+  closeButton.setAttribute('aria-label', 'Close latest coverage result');
+  closeButton.textContent = '×';
+  closeButton.addEventListener('click', () => clearLatestRecord().catch((error) => setStatus(`Failed to clear latest coverage: ${error.message}`, 'error')));
+  header.append(heading, closeButton);
+  resultsDiv.appendChild(header);
+
+  const summary = document.createElement('div');
+  summary.className = 'result-item action-coverage-summary';
+  summary.textContent = `${actionCovered} action-level executed functions / ${actionTotal} total Delta functions (${getCoveragePercent(actionCovered, actionTotal)} coverage). Previous actions are not included.`;
+  resultsDiv.appendChild(summary);
+
+  const interactions = Array.isArray(record?.interactions) ? record.interactions : [];
+  if (interactions.length) {
+    const actionRow = document.createElement('div');
+    actionRow.className = 'result-item action-row';
+    const actionHeading = document.createElement('div');
+    actionHeading.className = 'action-heading';
+    actionHeading.textContent = 'Recorded test steps';
+    const actionList = document.createElement('ol');
+    actionList.className = 'action-list';
+    interactions.forEach((interaction) => {
+      const item = document.createElement('li');
+      item.textContent = interaction?.text || String(interaction);
+      actionList.appendChild(item);
+    });
+    actionRow.append(actionHeading, actionList);
+    resultsDiv.appendChild(actionRow);
+  }
+
+  if (!files.length) {
+    const empty = document.createElement('div');
+    empty.className = 'result-item';
+    empty.textContent = 'No JS files with coverage found.';
+    resultsDiv.appendChild(empty);
+  } else {
+    files.forEach((file) => {
+      const executedFunctions = getExecutedFunctions(file.functions);
+      const coveredFunctions = Number(file.coveredFunctions ?? executedFunctions.length);
+      const fileRow = document.createElement('div');
+      fileRow.className = 'result-item file-row';
+      const fileUrl = document.createElement('div');
+      fileUrl.className = 'file-url';
+      fileUrl.textContent = formatFileUrl(file.url);
+      const metrics = document.createElement('div');
+      metrics.className = 'coverage-metrics';
+      metrics.textContent = `${coveredFunctions} action-level executed functions · ${getCoveragePercent(coveredFunctions, actionTotal)} of total Delta functions`;
+      fileRow.append(fileUrl, metrics);
+      if (executedFunctions.length) {
+        const functionList = document.createElement('div');
+        functionList.className = 'function-list';
+        executedFunctions.sort((a, b) => (a.name || '').localeCompare(b.name || '')).forEach((fn) => {
+          const item = document.createElement('div');
+          item.className = 'function-item function-covered';
+          const name = document.createElement('span');
+          name.className = 'function-name';
+          name.textContent = `✓ ${fn.name || '(anonymous)'}`;
+          item.appendChild(name);
+          functionList.appendChild(item);
+        });
+        fileRow.appendChild(functionList);
+      }
+      resultsDiv.appendChild(fileRow);
+    });
+  }
+  resultsDiv.classList.add('show');
+}
+
+function setRecordingControls(recording) {
+  startBtn.disabled = recording;
+  stopBtn.disabled = !recording;
+  testNameInput.disabled = recording;
+  testDescInput.disabled = recording;
+  testSuiteInput.disabled = recording;
+  environmentInput.readOnly = true;
+}
+
+function sendRuntimeMessage(message) {
+  return new Promise((resolve, reject) => {
+    chrome.runtime.sendMessage(message, (response) => {
+      if (chrome.runtime.lastError) return reject(new Error(chrome.runtime.lastError.message));
+      if (!response?.success) return reject(new Error(response?.error || 'Coverage command failed.'));
+      resolve(response);
+    });
+  });
+}
+
+async function createManualJob(sessionDetails) {
+  const response = await fetch(`${bridgeServerUrl}/manual-sessions`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(sessionDetails) });
+  if (!response.ok) throw new Error(`Start request failed with ${response.status}`);
+  const job = await response.json();
+  if (!job.jobId) throw new Error('Bridge server did not return a jobId.');
+  return job;
+}
+
+async function restoreActiveSession() {
+  const status = await new Promise((resolve) => chrome.runtime.sendMessage({ action: 'getStatus' }, resolve));
+  if (!status?.recording) return;
+  activeJobId = status.jobId;
+  setRecordingControls(true);
+  testNameInput.value = status.testName || '';
+  testDescInput.value = status.testDescription || '';
+  testSuiteInput.value = status.testSuite || 'Manual';
+  setEnvironmentDisplay(status.environment);
+  setStatus('Recording coverage — perform your test actions, then click Stop.', 'recording');
+}
+
+function setEnvironmentDisplay(environment) {
+  environmentInput.value = String(environment || '').trim() || 'Detection unavailable';
+}
+
+async function refreshDetectedEnvironment() {
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  if (tab?.url?.startsWith(chrome.runtime.getURL('history.html'))) {
+    const environment = new URL(tab.url).searchParams.get('environment');
+    if (environment) {
+      const normalized = normalizeEnvironment(environment);
+      setEnvironmentDisplay(normalized);
+      return normalized;
+    }
+  }
+  const environment = await detectEnvironment(tab?.id);
+  setEnvironmentDisplay(environment);
+  return environment;
+}
+
+(async () => {
+  const { latestCoverageResult } = await chrome.storage.local.get('latestCoverageResult');
+  if (latestCoverageResult) {
+    await loadDeltaInventory(latestCoverageResult.siteOrigin, latestCoverageResult.environment);
+    renderResults(latestCoverageResult);
+  }
+  try {
+    await restoreActiveSession();
+    if (!activeJobId) await refreshDetectedEnvironment();
+  } catch (error) {
+    setStatus(`Environment detection failed: ${error.message}`, 'error');
+  }
+})();
+
+startBtn.addEventListener('click', async () => {
+  const testName = testNameInput.value.trim();
+  const testDescription = testDescInput.value.trim();
+  const testSuite = testSuiteInput.value;
+  if (!testName && !testDescription) return setStatus('Please enter a test scenario or description first.', 'error');
+  setRecordingControls(true);
+  setStatus('Creating manual recording session...', 'recording');
+  try {
+    await clearLatestRecord();
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    const siteOrigin = getSiteOrigin(tab?.url);
+    const buildVersion = await detectBuildVersion(tab?.id);
+    const environment = await refreshDetectedEnvironment();
+    const job = await createManualJob({ testName, testDescription, testSuite, environment, buildVersion, siteOrigin });
+    await sendRuntimeMessage({ action: 'startCoverage', tabId: tab?.id, jobId: job.jobId, testName: testName || testDescription, testDescription, testSuite, environment, buildVersion, startedAt: job.startedAt, siteOrigin });
+    activeJobId = job.jobId;
+    setStatus('Recording coverage — perform your test actions, then click Stop.', 'recording');
+  } catch (error) {
+    setRecordingControls(false);
+    setStatus(`Could not start manual recording: ${error.message}`, 'error');
+  }
+});
+
+async function detectBuildVersion(tabId) {
+  if (!Number.isInteger(tabId)) return 'Unknown build';
+  const [{ result } = {}] = await chrome.scripting.executeScript({
+    target: { tabId },
+    func: () => document.querySelector('meta[name="coveragecapture-build"]')?.content?.trim()
+      || document.documentElement.dataset.buildVersion?.trim()
+      || globalThis.__BUILD_VERSION__?.toString().trim()
+      || '',
+  });
+  return result || 'Unknown build';
+}
+
+async function detectEnvironment(tabId) {
+  if (!Number.isInteger(tabId)) throw new Error('No active tab is available to detect the deployed environment.');
+  const [{ result } = {}] = await chrome.scripting.executeScript({
+    target: { tabId },
+    func: () => {
+      const declared = document.querySelector('meta[name="coveragecapture-environment"]')?.content?.trim()
+        || document.documentElement.dataset.coverageEnvironment?.trim();
+      if (declared) return declared;
+      const host = location.hostname.toLowerCase();
+      if (['localhost', '127.0.0.1', '::1'].includes(host) || /(^|[.-])dev([.-]|$)/.test(host)) return 'Development';
+      if (/(^|[.-])qa([.-]|$)|(^|[.-])test([.-]|$)/.test(host)) return 'QA';
+      if (/(^|[.-])(uat|staging)([.-]|$)/.test(host)) return 'UAT';
+      return '';
+    },
+  });
+  if (!result) throw new Error('The deployed environment is not declared. Set meta[name="coveragecapture-environment"] during deployment.');
+  return normalizeEnvironment(result);
+}
+
+function normalizeEnvironment(value) {
+  const aliases = { dev: 'Development', development: 'Development', qa: 'QA', test: 'QA', uat: 'UAT', staging: 'UAT', prod: 'Production', production: 'Production' };
+  const environment = String(value || '').trim();
+  return aliases[environment.toLowerCase()] || environment;
+}
+
+stopBtn.addEventListener('click', async () => {
+  setStatus('Processing coverage...', 'recording');
+  stopBtn.disabled = true;
+  try {
+    const record = await sendRuntimeMessage({ action: 'stopCoverage' });
+    const response = await fetch(`${bridgeServerUrl}/manual-sessions/${encodeURIComponent(record.jobId)}/coverage`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ coverage: record.rawCoverage, files: record.files, interactions: record.interactions, startTimestamp: record.startedAt, stopTimestamp: record.stoppedAt }),
+    });
+    if (!response.ok) throw new Error(`Upload failed with ${response.status}`);
+    activeJobId = null;
+    setRecordingControls(false);
+    setStatus(`Done. Captured coverage for "${record.testName}".`, 'done');
+    await loadDeltaInventory(record.siteOrigin, record.environment);
+    renderResults(record);
+  } catch (error) {
+    setRecordingControls(false);
+    setStatus(`Coverage saved locally, but the bridge server was not updated: ${error.message}`, 'error');
+  }
+});
+
+document.getElementById('historyBtn').addEventListener('click', async () => {
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  const siteOrigin = getSiteOrigin(tab?.url);
+  const environment = await detectEnvironment(tab?.id);
+  const query = siteOrigin ? `?origin=${encodeURIComponent(siteOrigin)}&environment=${encodeURIComponent(environment)}` : '';
+  chrome.tabs.create({ url: chrome.runtime.getURL(`history.html${query}`) });
+});
+
+runDeltaBtn.addEventListener('click', async () => {
+  runDeltaBtn.disabled = true;
+  setStatus('Running automated coverage and delta check...', 'recording');
+  try {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    const siteOrigin = getSiteOrigin(tab?.url);
+    const environment = await detectEnvironment(tab?.id);
+    if (!siteOrigin) throw new Error('Open a localhost application tab before running the delta check.');
+    const response = await fetch(`${bridgeServerUrl}/run-delta-check`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ siteOrigin, environment }),
+    });
+    const responseText = await response.text();
+    let result = null;
+    try { result = responseText ? JSON.parse(responseText) : null; }
+    catch {
+      if (response.status === 404) throw new Error('Restart the Coverage Bridge Server to enable Run Delta Check.');
+      throw new Error(`Bridge server returned an unexpected response (${response.status}).`);
+    }
+    if (!response.ok) throw new Error(result?.error || `Run failed with ${response.status}`);
+    setStatus('Delta check complete. Opening the updated delta report...', 'done');
+    const query = `origin=${encodeURIComponent(siteOrigin)}&environment=${encodeURIComponent(environment)}&view=delta`;
+    chrome.tabs.create({ url: chrome.runtime.getURL(`history.html?${query}`) });
+  } catch (error) {
+    setStatus(`Could not run delta check: ${error.message}`, 'error');
+  } finally {
+    runDeltaBtn.disabled = false;
+  }
+});

@@ -1,6 +1,7 @@
 node_modules/
 *.log
 *.db
+Cobra/.git.local-backup/
 
 travel-trust-insurance/node_modules/
 travel-trust-insurance/playwright-report/

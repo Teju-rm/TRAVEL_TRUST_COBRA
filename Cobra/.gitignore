@@ -1,0 +1,8 @@
+node_modules/
+*.log
+*.db
+
+travel-trust-insurance/node_modules/
+travel-trust-insurance/playwright-report/
+travel-trust-insurance/test-results/
+travel-trust-insurance/db/
