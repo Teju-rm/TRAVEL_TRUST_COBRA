@@ -61,12 +61,15 @@
       background: #0a1f44;
       color: white;
     }
+    #runAutomaticCoverageBtn,
     #runDeltaBtn {
       width: 100%;
       margin-top: 8px;
-      background: #2563eb;
       color: white;
     }
+    #runAutomaticCoverageBtn { background: #0b6fae; }
+    #runDeltaBtn { background: #2563eb; }
+    #runAutomaticCoverageBtn:disabled,
     #runDeltaBtn:disabled { background: #9ca3af; cursor: not-allowed; }
     #status {
       margin-top: 10px;
@@ -210,6 +213,7 @@
     <button id="stopBtn" disabled>Stop</button>
   </div>
   <button id="historyBtn">View Full History</button>
+  <button id="runAutomaticCoverageBtn">Run Automatic Coverage</button>
   <button id="runDeltaBtn">Run Delta Coverage</button>
   <div id="status"></div>
   <div id="results"></div>

@@ -21,9 +21,131 @@
     body {
       margin: 0;
       min-width: 760px;
-      background: #f3f6fb;
+      background: #f6f9fc;
       color: var(--ink);
       font-family: 'Segoe UI', Arial, sans-serif;
+    }
+
+    .sl-topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      min-height: 56px;
+      padding: 0 28px;
+      border-bottom: 1px solid #dfe8f2;
+      background: #fff;
+    }
+
+    .sl-brand {
+      color: #0b6fae;
+      font-size: 22px;
+      font-style: italic;
+      font-weight: 800;
+      letter-spacing: 0;
+    }
+
+    .sl-nav {
+      display: flex;
+      align-items: stretch;
+      gap: 4px;
+      min-height: 56px;
+    }
+
+    .sl-nav-item {
+      display: inline-flex;
+      align-items: center;
+      padding: 0 15px;
+      min-height: 56px;
+      border: 0;
+      border-bottom: 3px solid transparent;
+      border-radius: 0;
+      color: #506784;
+      background: transparent;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .sl-nav-item.active {
+      border-bottom-color: #0b6fae;
+      color: #0a4778;
+      background: #eef7ff;
+    }
+
+    .sl-nav-item:focus-visible {
+      outline: 2px solid rgba(11, 111, 174, .35);
+      outline-offset: -3px;
+    }
+
+    .report-head {
+      margin-bottom: 16px;
+    }
+
+    .breadcrumb {
+      margin: 0 0 8px;
+      color: #4f6b85;
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .report-title-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+    }
+
+    .report-title {
+      margin: 0;
+      color: #0a4778;
+      font-size: 22px;
+      font-weight: 700;
+    }
+
+    .quality-pill {
+      display: inline-flex;
+      align-items: center;
+      min-height: 30px;
+      padding: 5px 12px;
+      border: 1px solid #b7e4c7;
+      border-radius: 4px;
+      color: #14783c;
+      background: #ecfdf3;
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    .view-toolbar {
+      display: flex;
+      align-items: end;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-bottom: 14px;
+      padding: 14px;
+      border: 1px solid #dfe8f2;
+      border-radius: 6px;
+      background: #fff;
+      box-shadow: 0 4px 14px rgba(15, 53, 86, .05);
+    }
+
+    .view-toolbar .filter-wrap {
+      flex: 1 1 260px;
+    }
+
+    .view-actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    #saveViewBtn {
+      background: #0b6fae;
+      color: #fff;
+    }
+
+    #deleteViewBtn {
+      border: 1px solid #dbe5ef;
+      background: #fff;
+      color: #52677d;
     }
 
     header {
@@ -349,6 +471,9 @@
       grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: 12px;
     }
+    .function-columns.executed-only {
+      grid-template-columns: 1fr;
+    }
 
     .function-column {
       min-width: 0;
@@ -455,25 +580,97 @@
       }
       .dashboard-grid { grid-template-columns: repeat(2, 1fr); }
     }
-    /* Coverage dashboard refresh */
-    main { max-width: 1240px; padding: 30px 38px 44px; }
-    .toolbar { align-items: flex-end; gap: 10px; margin-bottom: 20px; }
+    /* SeaLights-inspired coverage dashboard refresh */
+    body { background: #eef3f8; }
+    .sl-topbar { min-height: 54px; border-bottom-color: #d7e0ea; box-shadow: 0 1px 4px rgba(33, 52, 74, .05); }
+    .sl-brand { color: #1686c4; font-size: 21px; }
+    .sl-nav-item { color: #53677d; font-size: 12px; }
+    .sl-nav-item.active { border-bottom-color: #1686c4; color: #126895; background: #f2f9fd; }
+    main { max-width: 1420px; padding: 26px 34px 44px; }
+    .report-head { margin-bottom: 12px; }
+    .breadcrumb { color: #60758b; font-size: 12px; }
+    .report-title { color: #173b57; font-size: 24px; font-weight: 700; }
+    .quality-pill { border-color: #b8dec8; border-radius: 3px; color: #16723d; background: #f0fbf4; }
+    .view-toolbar, .toolbar {
+      border: 1px solid #d7e1ec;
+      border-radius: 4px;
+      background: #fff;
+      box-shadow: 0 2px 8px rgba(38, 58, 81, .06);
+    }
+    .view-toolbar { margin-bottom: 10px; }
+    .gate-thresholds { display: grid; grid-template-columns: repeat(4, minmax(84px, 1fr)); gap: 8px; flex: 2 1 430px; min-width: 360px; margin: 0; padding: 9px 10px 10px; border: 1px solid #d7e1ec; border-radius: 5px; }
+    .gate-thresholds legend { padding: 0 5px; color: #436176; font-size: 11px; font-weight: 800; text-transform: uppercase; }
+    .gate-thresholds label { margin: 0; color: #52687d; font-size: 11px; }
+    .gate-thresholds input { min-height: 32px; margin-top: 4px; padding: 6px 7px; font-size: 12px; }
+    .toolbar { align-items: flex-end; gap: 10px; margin-bottom: 16px; padding: 14px; }
     label { margin-bottom: 7px; }
     input { min-height: 40px; padding: 9px 12px; border-radius: 5px; }
     #sortSelect, .filter-select { min-height: 40px; padding: 9px 36px 9px 12px; border-radius: 5px; }
     .actions { gap: 10px; }
     button { min-height: 40px; padding: 9px 14px; border-radius: 5px; }
-    .dashboard-shell { overflow: hidden; margin-bottom: 22px; border: 1px solid #e8edf4; border-radius: 8px; background: var(--surface); box-shadow: 0 10px 30px rgba(10, 31, 68, .08); }
-    .dashboard-overview { padding: 20px; }
-    .dashboard-grid { gap: 14px; margin: 0 0 13px; }
-    .dashboard-card { min-height: 126px; padding: 20px 16px; border: 1px solid #edf0f4; border-top: 4px solid var(--navy); border-radius: 7px; box-shadow: 0 6px 18px rgba(10,31,68,.06); }
-    .dashboard-card.risk-card { border-top-color: var(--red); }
-    .card-note { margin-top: 5px; }
-    .coverage-tabs { display: inline-flex; gap: 0; margin-top: 14px; overflow: hidden; border: 1px solid #d9e2ee; border-radius: 6px; }
+    .dashboard-shell { overflow: hidden; margin-bottom: 20px; border: 1px solid #d5dfeb; border-radius: 4px; background: var(--surface); box-shadow: 0 4px 12px rgba(35, 55, 78, .07); }
+    .dashboard-overview { padding: 18px; }
+    .dashboard-grid { grid-template-columns: repeat(5, minmax(160px, 1fr)); gap: 12px; margin: 0 0 12px; }
+    .dashboard-card { min-height: 118px; padding: 16px 15px; border: 1px solid #dfe8f1; border-top: 3px solid #1b84bd; border-radius: 3px; box-shadow: none; background: #fff; }
+    .dashboard-card.primary-coverage-card { border-top-color: #1686c4; background: #fafdff; }
+    .dashboard-card.risk-card { border-top-color: #c43832; background: #fffafa; }
+    .dashboard-card.pass-card { border-top-color: #1b8f4d; background: #fbfffd; }
+    .dashboard-card.warning-card { border-top-color: #d78a1d; background: #fffdf8; }
+    .card-value, .gate-value { color: #173b57; font-size: 28px; }
+    .primary-coverage-card .card-value { font-size: 34px; }
+    .card-label { margin-top: 11px; color: #436176; font-size: 11px; letter-spacing: .02em; }
+    .card-note { margin-top: 5px; color: #6b7d8e; line-height: 1.35; }
+    .scope-strip { margin: 8px 0 16px; }
+    .scope-pill { border-radius: 3px; color: #36566f; background: #f8fbfd; }
+    .build-dashboard { margin-top: 16px; border: 1px solid #d7e1ec; border-radius: 4px; background: #fff; }
+    .build-dashboard-head { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px 8px; }
+    .build-dashboard-title { margin: 0 0 4px; color: #173b57; font-size: 17px; font-weight: 700; }
+    .build-table-wrap { overflow-x: auto; }
+    .build-table { min-width: 1040px; }
+    .build-table th { background: #f5f8fb; color: #52687d; font-size: 11px; text-transform: uppercase; white-space: nowrap; }
+    .build-table td { color: #25394b; vertical-align: middle; white-space: nowrap; }
+    .build-table tr.build-row { cursor: pointer; }
+    .build-table tr.build-row:hover td { background: #f9fcff; }
+    .build-toggle { width: 26px; min-width: 26px; min-height: 26px; margin-right: 8px; padding: 0; border: 1px solid #c9d7e6; border-radius: 3px; color: #126895; background: #fff; line-height: 1; }
+    .build-toggle[aria-expanded="true"] { color: #fff; background: #1686c4; border-color: #1686c4; }
+    .build-detail-row[hidden] { display: none; }
+    .build-detail-cell { padding: 0; background: #fbfdff; }
+    .build-detail-panel { display: grid; grid-template-columns: minmax(220px, 300px) minmax(0, 1fr) minmax(220px, 300px); gap: 18px; padding: 18px; border-top: 1px solid #e0e8f1; }
+    .stage-list { display: grid; gap: 8px; align-content: start; }
+    .stage-card { padding: 12px; border: 1px solid #dce6f0; border-radius: 4px; background: #fff; }
+    .stage-card-title { color: #173b57; font-size: 13px; font-weight: 800; }
+    .stage-card-note { margin-top: 4px; color: #66798b; font-size: 12px; }
+    .stage-card .coverage-bar { display: block; width: 100%; margin-top: 8px; }
+    .stage-files { min-width: 0; }
+    .stage-files-title { margin: 0 0 8px; color: #173b57; font-size: 13px; font-weight: 800; }
+    .build-gate-panel { min-width: 0; }
+    .gate-rules { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+    .gate-rule { padding: 4px 7px; border: 1px solid #d5e0ea; border-radius: 3px; color: #52687d; background: #fff; font-size: 11px; font-weight: 700; }
+    .gate-rule-list, .failed-test-list { display: grid; gap: 7px; }
+    .failed-test-list { margin-top: 14px; }
+    .gate-check { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; padding: 9px; border: 1px solid #cfe7d8; border-radius: 4px; background: #f8fffb; color: #246144; font-size: 12px; }
+    .gate-check.failed { border-color: #f0c5c1; background: #fff7f7; color: #8f2d25; }
+    .gate-check-name, .gate-check-result { font-weight: 800; }
+    .gate-check-result { text-align: right; white-space: nowrap; }
+    .failed-test-item { padding: 8px 9px; border: 1px solid #e2e9f1; border-radius: 4px; background: #fff; color: #52687d; font-size: 12px; overflow-wrap: anywhere; }
+    .app-cell { display: grid; gap: 3px; }
+    .app-name { color: #126895; font-weight: 800; }
+    .app-origin { color: #718294; font-size: 11px; }
+    .coverage-cell { min-width: 150px; }
+    .coverage-cell .coverage-bar { display: block; width: 118px; margin: 7px 0 0; }
+    .metric-strong { color: #173b57; font-weight: 800; }
+    .quality-status { display: inline-flex; align-items: center; min-height: 24px; padding: 3px 9px; border-radius: 3px; font-size: 11px; font-weight: 800; text-transform: uppercase; }
+    .quality-status.passed { color: #126c3b; background: #e9f8ef; border: 1px solid #bfe5ce; }
+    .quality-status.failed { color: #a02a24; background: #fff1f1; border: 1px solid #f1c4c1; }
+    .quality-status.missing { color: #8a5a12; background: #fff8e8; border: 1px solid #efd59c; }
+    .build-empty { border-top: 1px solid #e5edf5; }
+    .coverage-tabs { display: inline-flex; gap: 0; margin-top: 14px; overflow: hidden; border: 1px solid #d9e2ee; border-radius: 999px; }
     .coverage-tab { min-height: 40px; padding: 8px 18px; border: 0; border-radius: 0; background: #fff; color: var(--navy); font-size: 12px; }
     .coverage-tab + .coverage-tab { border-left: 1px solid #d9e2ee; }
-    .coverage-tab[aria-selected="true"] { background: var(--navy); color: #fff; }
-    .coverage-list { padding: 42px 50px; border-top: 1px solid #e8edf4; background: #fff; }
+    .coverage-tab[aria-selected="true"] { background: #d9eefb; color: #0a4778; }
+    .coverage-list { padding: 28px 34px; border-top: 1px solid #e8edf4; background: #fff; }
+    .scope-strip { display: flex; flex-wrap: wrap; gap: 8px; color: #48627f; font-size: 12px; }
+    .scope-pill { padding: 5px 9px; border: 1px solid #d9e5f0; font-weight: 700; }
     .delta-section { margin-top: 18px; padding: 26px; border: 1px solid #d5e1f0; border-radius: 12px; background: linear-gradient(135deg, #f8fbff 0%, #eef6ff 100%); box-shadow: 0 16px 34px rgba(10, 31, 68, .08); }
     .delta-heading { margin: 0 0 6px; color: var(--navy); font-size: 22px; letter-spacing: -.02em; }
     .delta-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; }
@@ -525,6 +722,7 @@
     body.delta-only main { max-width: 1680px; padding-top: 32px; }
     body.delta-only .toolbar,
     body.delta-only .dashboard-grid,
+    body.delta-only .build-dashboard,
     body.delta-only .coverage-trend,
     body.delta-only .action-comparison,
     body.delta-only .dashboard-grid + .section-note,
@@ -536,21 +734,121 @@
     body.delta-only .dashboard-overview { padding: 0; }
     body.delta-only .delta-section { margin-top: 0; }
     .overall-file { margin-top: 8px; padding: 12px; border-color: #e8edf4; border-radius: 5px; background: #fff; }
-    .overall-file summary { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 20px; align-items: center; }
+    .overall-file summary { display: grid; grid-template-columns: minmax(0, 1fr) repeat(4, auto); gap: 18px; align-items: center; }
+    .stage-metric { min-width: 78px; color: #48627f; font-size: 12px; font-weight: 700; text-align: right; }
+    .stage-metric strong { display: block; color: #0a4778; font-size: 13px; }
     .untested-file { margin-top: 0; padding: 10px 0; border: 0; border-radius: 0; background: transparent; }
     .untested-file summary { display: list-item; color: var(--red); font-weight: 700; }
-    .table-wrap { border-radius: 8px; }
+    .table-wrap { border-radius: 4px; box-shadow: 0 3px 10px rgba(35, 55, 78, .06); }
+    .action-history-wrap { border-color: #d7e1ec; }
+    .table-title-row { display: flex; align-items: baseline; justify-content: space-between; gap: 14px; padding: 14px 16px; border-bottom: 1px solid #e1e9f2; background: #fff; }
+    .table-title { margin: 0; color: #173b57; font-size: 17px; }
+    .table-subtitle { color: #687b8e; font-size: 12px; }
+    .analysis-panel {
+      margin-bottom: 18px;
+      padding: 18px;
+      border: 1px solid #dfe8f2;
+      border-radius: 6px;
+      background: #fff;
+      box-shadow: 0 4px 14px rgba(15, 53, 86, .05);
+    }
+    .analysis-panel[hidden] { display: none; }
+    .analysis-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 14px;
+      margin-bottom: 14px;
+    }
+    .analysis-title { margin: 0; color: #173b57; font-size: 20px; }
+    .analysis-note { margin: 4px 0 0; color: #687b8e; font-size: 12px; }
+    .analysis-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+    }
+    .analysis-card {
+      min-width: 0;
+      padding: 14px;
+      border: 1px solid #dfe8f2;
+      border-radius: 6px;
+      background: #fbfdff;
+    }
+    .analysis-card-title { margin: 0 0 8px; color: #0a1f44; font-size: 14px; }
+    .analysis-card-value { color: #0a4778; font-size: 28px; font-weight: 800; line-height: 1; }
+    .analysis-card-note { margin-top: 6px; color: #687b8e; font-size: 12px; }
+    .analysis-list {
+      display: grid;
+      gap: 10px;
+      margin-top: 14px;
+    }
+    .analysis-row {
+      padding: 12px;
+      border: 1px solid #dfe8f2;
+      border-radius: 6px;
+      background: #fff;
+    }
+    .analysis-row-title {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      color: #0a1f44;
+      font-weight: 800;
+    }
+    .analysis-row-meta { margin-top: 4px; color: #687b8e; font-size: 12px; }
+    th { background: #f5f8fb; color: #52687d; font-size: 11px; }
+    td { color: #25394b; }
     @media (max-width: 820px) {
       main { padding: 22px 16px 32px; }
+      .dashboard-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .table-title-row { align-items: flex-start; flex-direction: column; }
       .overall-file summary { grid-template-columns: 1fr auto; gap: 8px 12px; }
       .coverage-list { padding: 28px 22px; }
       .delta-controls, .delta-summary, .delta-builds { grid-template-columns: 1fr; }
       .delta-header { flex-direction: column; }
+      .gate-thresholds, .build-detail-panel, .analysis-grid { grid-template-columns: 1fr; min-width: 0; }
     }
   </style>
 </head>
 <body>
+  <div class="sl-topbar">
+    <div class="sl-brand">CoverageCapture</div>
+    <nav class="sl-nav" aria-label="Coverage navigation">
+      <button class="sl-nav-item active" type="button" data-primary-view="dashboard" aria-selected="true">Coverage Dashboard</button>
+      <button class="sl-nav-item" type="button" data-primary-view="gaps" aria-selected="false">Test Gaps</button>
+      <button class="sl-nav-item" type="button" data-primary-view="quality" aria-selected="false">Quality Analytics</button>
+      <button class="sl-nav-item" type="button" data-primary-view="optimization" aria-selected="false">Test Optimization</button>
+    </nav>
+  </div>
   <main>
+    <section class="report-head" aria-label="Report heading">
+      <p class="breadcrumb">Coverage Dashboard / Coverage Analysis</p>
+      <div class="report-title-row">
+        <h1 class="report-title">Application Coverage Analysis</h1>
+        <span class="quality-pill">Quality Gate Tracked</span>
+      </div>
+    </section>
+
+    <section class="view-toolbar" aria-label="Saved coverage views">
+      <div class="filter-wrap">
+        <label for="viewSelect">View</label>
+        <select id="viewSelect" class="filter-select">
+          <option value="">Unsaved working view</option>
+        </select>
+      </div>
+      <div class="view-actions">
+        <button id="saveViewBtn" type="button">Save View</button>
+        <button id="deleteViewBtn" type="button">Delete View</button>
+      </div>
+      <fieldset class="gate-thresholds" aria-label="Quality gate thresholds">
+        <legend>Quality Gate</legend>
+        <label for="overallGateInput">Overall %<input id="overallGateInput" type="number" min="0" max="100" step="1"></label>
+        <label for="changesGateInput">Changes %<input id="changesGateInput" type="number" min="0" max="100" step="1"></label>
+        <label for="untestedGateInput">Untested<input id="untestedGateInput" type="number" min="0" step="1"></label>
+        <label for="failedGateInput">Failed<input id="failedGateInput" type="number" min="0" step="1"></label>
+      </fieldset>
+    </section>
+
     <div class="toolbar">
       <div class="search-wrap">
         <label for="searchInput">Filter by Test Scenario</label>
@@ -568,6 +866,24 @@
         </select>
       </div>
       <div class="filter-wrap">
+        <label for="dateRangeMode">Date Range</label>
+        <select id="dateRangeMode" class="filter-select">
+          <option value="">All dates</option>
+          <option value="last-7-days">Last 7 days</option>
+          <option value="last-30-days">Last 30 days</option>
+          <option value="open-ended">From start date</option>
+          <option value="fixed">Fixed range</option>
+        </select>
+      </div>
+      <div class="filter-wrap">
+        <label for="dateStartInput">Start Date</label>
+        <input type="date" id="dateStartInput">
+      </div>
+      <div class="filter-wrap">
+        <label for="dateEndInput">End Date</label>
+        <input type="date" id="dateEndInput">
+      </div>
+      <div class="filter-wrap">
         <label for="testSuiteFilter">Test Suite</label>
         <select id="testSuiteFilter" class="filter-select">
           <option value="">All test suites</option>
@@ -577,6 +893,14 @@
         <label for="environmentFilter">Environment</label>
         <select id="environmentFilter" class="filter-select">
           <option value="">All environments</option>
+        </select>
+      </div>
+      <div class="filter-wrap">
+        <label for="layerFilter">Layer</label>
+        <select id="layerFilter" class="filter-select">
+          <option value="">All layers</option>
+          <option value="frontend">Frontend</option>
+          <option value="backend">Backend</option>
         </select>
       </div>
       <div class="filter-wrap">
@@ -602,10 +926,38 @@
       </div>
     </div>
 
-    <section class="dashboard-shell" aria-label="Coverage Dashboard">
+    <section id="dashboardPanel" class="dashboard-shell" aria-label="Coverage Dashboard">
       <div class="dashboard-overview">
         <div class="dashboard-grid" id="dashboardCards"></div>
         <p id="dashboardScopeNote" class="section-note">Coverage uses the complete function inventory from the latest Coverage Delta check; recorded actions determine which functions were executed.</p>
+        <div id="scopeStrip" class="scope-strip" aria-label="Selected code scope"></div>
+        <section class="build-dashboard" aria-labelledby="buildDashboardHeading">
+          <div class="build-dashboard-head">
+            <div>
+              <h2 id="buildDashboardHeading" class="build-dashboard-title">Applications</h2>
+              <p class="section-note">Coverage and quality status by build and selected test stage scope.</p>
+            </div>
+          </div>
+          <div class="build-table-wrap">
+            <table class="build-table">
+              <thead>
+                <tr>
+                  <th>Application</th>
+                  <th>Branch</th>
+                  <th>Latest Build</th>
+                  <th>Reference Build</th>
+                  <th>Overall Coverage</th>
+                  <th>Code Changes Coverage</th>
+                  <th>Untested Code Changes</th>
+                  <th>Failed Tests</th>
+                  <th>Quality Gate</th>
+                </tr>
+              </thead>
+              <tbody id="buildSummaryBody"></tbody>
+            </table>
+            <div class="empty build-empty" id="buildSummaryEmpty">No build coverage found for this view.</div>
+          </div>
+        </section>
         <section class="delta-section" aria-labelledby="deltaHeading">
           <div class="delta-header">
             <div>
@@ -638,9 +990,43 @@
       </div>
     </section>
 
+    <section id="testGapsPanel" class="analysis-panel" aria-label="Test gaps" hidden>
+      <div class="analysis-head">
+        <div>
+          <h2 class="analysis-title">Test Gaps</h2>
+          <p class="analysis-note">Untested methods and files in the selected coverage scope.</p>
+        </div>
+      </div>
+      <div id="testGapsContent"></div>
+    </section>
+
+    <section id="qualityAnalyticsPanel" class="analysis-panel" aria-label="Quality analytics" hidden>
+      <div class="analysis-head">
+        <div>
+          <h2 class="analysis-title">Quality Analytics</h2>
+          <p class="analysis-note">Quality gate status, failed checks, and stage coverage for the selected scope.</p>
+        </div>
+      </div>
+      <div id="qualityAnalyticsContent"></div>
+    </section>
+
+    <section id="testOptimizationPanel" class="analysis-panel" aria-label="Test optimization" hidden>
+      <div class="analysis-head">
+        <div>
+          <h2 class="analysis-title">Test Optimization</h2>
+          <p class="analysis-note">Scenarios that can improve coverage most or may need review.</p>
+        </div>
+      </div>
+      <div id="testOptimizationContent"></div>
+    </section>
+
     <p class="summary" id="summaryText"></p>
 
-    <div class="table-wrap">
+    <div id="actionHistoryPanel" class="table-wrap action-history-wrap">
+      <div class="table-title-row">
+        <h2 class="table-title">Test Stage Details</h2>
+        <span class="table-subtitle">Expand a scenario to inspect covered methods by file and stage.</span>
+      </div>
       <table>
         <thead>
           <tr>

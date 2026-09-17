@@ -38,4 +38,11 @@ assert.equal(sessions.filter((session) => session.testName === 'Admin Login').le
 assert.equal(sessions.find((session) => session.testName === 'Admin Login').result.files[0].functions[0].name, 'submitAdminLogin');
 assert.equal(sessions.find((session) => session.testName === 'Contact Us').result.files[0].functions[0].name, 'submitContactForm');
 
+const fixedRangeSessions = database.listCoverageSessions(origin, 'Development', {
+  mode: 'fixed',
+  start: '2026-01-01T00:01:00.000Z',
+  end: '2026-01-01T00:01:30.000Z',
+});
+assert.deepEqual(fixedRangeSessions.map((session) => session.testName), ['Contact Us']);
+
 console.log('Multiple action history entries remain separate and cumulative.');

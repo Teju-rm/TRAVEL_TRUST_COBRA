@@ -69,6 +69,7 @@ const test = base.extend({
           startedAt,
           stoppedAt: new Date().toISOString(),
           status: testInfo.status,
+          error: testInfo.error?.message || testInfo.errors?.map((error) => error.message).filter(Boolean).join('\n') || '',
           coverage: { browser: rawBrowserCoverage, backend: rawBackendCoverage },
           files,
         };

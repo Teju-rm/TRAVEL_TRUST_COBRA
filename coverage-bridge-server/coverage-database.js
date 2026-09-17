@@ -70,6 +70,31 @@ database.exec(`
     completed_at TEXT
   );
 
+  CREATE TABLE IF NOT EXISTS test_results (
+    id INTEGER PRIMARY KEY,
+    site_origin TEXT NOT NULL,
+    environment TEXT NOT NULL,
+    test_suite TEXT NOT NULL DEFAULT 'CI',
+    test_name TEXT NOT NULL,
+    build_version TEXT NOT NULL DEFAULT '',
+    status TEXT NOT NULL,
+    error TEXT NOT NULL DEFAULT '',
+    started_at TEXT NOT NULL,
+    stopped_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    UNIQUE(site_origin, environment, test_suite, test_name)
+  );
+
+  CREATE TABLE IF NOT EXISTS coverage_views (
+    id INTEGER PRIMARY KEY,
+    site_origin TEXT NOT NULL,
+    name TEXT NOT NULL,
+    config_json TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    UNIQUE(site_origin, name)
+  );
+
   CREATE INDEX IF NOT EXISTS coverage_files_job_id_idx ON coverage_files(job_id);
   CREATE INDEX IF NOT EXISTS coverage_sessions_started_at_idx ON coverage_sessions(started_at DESC);
 
@@ -100,6 +125,8 @@ database.exec('CREATE INDEX IF NOT EXISTS coverage_sessions_site_origin_idx ON c
 database.exec('CREATE INDEX IF NOT EXISTS coverage_sessions_origin_environment_started_at_idx ON coverage_sessions(site_origin, environment, started_at DESC)');
 database.exec('CREATE INDEX IF NOT EXISTS delta_coverage_environment_idx ON delta_coverage_by_environment(site_origin, environment, created_at DESC)');
 database.exec('CREATE INDEX IF NOT EXISTS testing_cycles_scope_idx ON testing_cycles(site_origin, environment, id DESC)');
+database.exec('CREATE INDEX IF NOT EXISTS test_results_scope_idx ON test_results(site_origin, environment, status, updated_at DESC)');
+database.exec('CREATE INDEX IF NOT EXISTS coverage_views_origin_idx ON coverage_views(site_origin, updated_at DESC)');
 
 const insertSession = database.prepare(`
   INSERT INTO coverage_sessions (job_id, status, test_name, test_description, test_suite, environment, build_version, site_origin, started_at)
@@ -131,6 +158,31 @@ const getActiveCycle = database.prepare("SELECT * FROM testing_cycles WHERE site
 const insertCycle = database.prepare("INSERT INTO testing_cycles (site_origin, environment, status, functions_json, created_at, updated_at) VALUES (?, ?, 'pending', ?, ?, ?)");
 const updateCycle = database.prepare('UPDATE testing_cycles SET functions_json = ?, status = ?, updated_at = ?, completed_at = ? WHERE id = ?');
 const listCycles = database.prepare('SELECT * FROM testing_cycles WHERE site_origin = ? AND environment = ? ORDER BY id DESC');
+const upsertTestResult = database.prepare(`
+  INSERT INTO test_results (site_origin, environment, test_suite, test_name, build_version, status, error, started_at, stopped_at, updated_at)
+  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  ON CONFLICT(site_origin, environment, test_suite, test_name) DO UPDATE SET
+    build_version = excluded.build_version,
+    status = excluded.status,
+    error = excluded.error,
+    started_at = excluded.started_at,
+    stopped_at = excluded.stopped_at,
+    updated_at = excluded.updated_at
+`);
+const listCurrentFailures = database.prepare(`
+  SELECT * FROM test_results
+  WHERE site_origin = ? AND environment = ? AND status IN ('failed', 'timedOut', 'interrupted')
+  ORDER BY updated_at DESC
+`);
+const upsertCoverageView = database.prepare(`
+  INSERT INTO coverage_views (site_origin, name, config_json, created_at, updated_at)
+  VALUES (?, ?, ?, ?, ?)
+  ON CONFLICT(site_origin, name) DO UPDATE SET
+    config_json = excluded.config_json,
+    updated_at = excluded.updated_at
+`);
+const listCoverageViewsForOrigin = database.prepare('SELECT * FROM coverage_views WHERE site_origin = ? ORDER BY updated_at DESC, name');
+const deleteCoverageViewForOrigin = database.prepare('DELETE FROM coverage_views WHERE id = ? AND site_origin = ?');
 
 function parseJson(value, fallback) {
   try {
@@ -151,6 +203,44 @@ function inferSiteOrigin(files) {
     }
   }
   return [...originCounts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] || '';
+}
+
+function normalizeDateBoundary(value, endOfDay) {
+  if (!value) return '';
+  const raw = String(value).trim();
+  const date = /^\d{4}-\d{2}-\d{2}$/.test(raw)
+    ? new Date(`${raw}T${endOfDay ? '23:59:59.999' : '00:00:00.000'}`)
+    : new Date(raw);
+  return Number.isNaN(date.getTime()) ? '' : date.toISOString();
+}
+
+function normalizeDateRange(dateRange = {}) {
+  const mode = String(dateRange.mode || '').trim();
+  const now = new Date();
+  if (mode === 'rolling') {
+    const days = Number(dateRange.days);
+    return {
+      start: Number.isFinite(days) && days > 0 ? new Date(now.getTime() - (days * 24 * 60 * 60 * 1000)).toISOString() : '',
+      end: now.toISOString(),
+    };
+  }
+  if (mode === 'open-ended') return { start: normalizeDateBoundary(dateRange.start, false), end: '' };
+  if (mode === 'fixed') return { start: normalizeDateBoundary(dateRange.start, false), end: normalizeDateBoundary(dateRange.end, true) };
+  return { start: normalizeDateBoundary(dateRange.start, false), end: normalizeDateBoundary(dateRange.end, true) };
+}
+
+function addDateRangeWhere(sql, params, column, dateRange) {
+  const { start, end } = normalizeDateRange(dateRange);
+  let query = sql;
+  if (start) {
+    query += ` AND ${column} >= ?`;
+    params.push(start);
+  }
+  if (end) {
+    query += ` AND ${column} <= ?`;
+    params.push(end);
+  }
+  return query;
 }
 
 // Backfill sessions saved before site_origin was added, so their history remains visible.
@@ -227,8 +317,13 @@ function getCoverageSession(jobId) {
   return toCoverageSession(getSession.get(jobId));
 }
 
-function listCoverageSessions(siteOrigin, environment) {
-  return listSessions.all(siteOrigin, requireEnvironment(environment)).map((session) => toCoverageSession(session, false));
+function listCoverageSessions(siteOrigin, environment, dateRange = {}) {
+  const normalizedEnvironment = requireEnvironment(environment);
+  const { start, end } = normalizeDateRange(dateRange);
+  if (!start && !end) return listSessions.all(siteOrigin, normalizedEnvironment).map((session) => toCoverageSession(session, false));
+  const params = [siteOrigin, normalizedEnvironment];
+  const sql = `${addDateRangeWhere('SELECT * FROM coverage_sessions WHERE site_origin = ? AND environment = ?', params, 'started_at', dateRange)} ORDER BY started_at DESC`;
+  return database.prepare(sql).all(...params).map((session) => toCoverageSession(session, false));
 }
 
 function removeCoverageSession(jobId, environment) {
@@ -261,8 +356,17 @@ function saveDeltaCoverage({ siteOrigin = '', environment, buildVersion = '', ba
   return { ...getDeltaCoverage(siteOrigin, normalizedEnvironment), testingCycles: getTestingCycles(siteOrigin, normalizedEnvironment) };
 }
 
-function getDeltaCoverage(siteOrigin, environment) {
-  const row = getLatestDeltaCoverage.get(siteOrigin, requireEnvironment(environment));
+function getDeltaCoverage(siteOrigin, environment, dateRange = {}) {
+  const normalizedEnvironment = requireEnvironment(environment);
+  const { start, end } = normalizeDateRange(dateRange);
+  let row;
+  if (start || end) {
+    const params = [siteOrigin, normalizedEnvironment];
+    const sql = `${addDateRangeWhere('SELECT * FROM delta_coverage_by_environment WHERE site_origin = ? AND environment = ?', params, 'created_at', dateRange)} ORDER BY created_at DESC LIMIT 1`;
+    row = database.prepare(sql).get(...params);
+  } else {
+    row = getLatestDeltaCoverage.get(siteOrigin, normalizedEnvironment);
+  }
   if (!row) return null;
   return { siteOrigin: row.site_origin, environment: row.environment, buildVersion: row.build_version, baselineRef: row.baseline_ref, createdAt: row.created_at, delta: parseJson(row.delta_json, null) };
 }
@@ -275,6 +379,102 @@ function cycleSummary(row) {
 }
 function getTestingCycles(siteOrigin, environment) { return listCycles.all(siteOrigin, requireEnvironment(environment)).map(cycleSummary); }
 
+function normalizeTestStatus(value) {
+  const status = String(value || '').trim();
+  if (/^passed$/i.test(status)) return 'passed';
+  if (/^skipped$/i.test(status)) return 'skipped';
+  if (/^timedout$/i.test(status) || /^timed out$/i.test(status)) return 'timedOut';
+  if (/^interrupted$/i.test(status)) return 'interrupted';
+  return 'failed';
+}
+
+function toTestResult(row) {
+  return {
+    id: row.id,
+    siteOrigin: row.site_origin,
+    environment: row.environment,
+    testSuite: row.test_suite,
+    testName: row.test_name,
+    buildVersion: row.build_version,
+    status: row.status,
+    error: row.error,
+    startedAt: row.started_at,
+    stoppedAt: row.stopped_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+function saveTestResults({ siteOrigin = '', environment, testSuite = 'CI', buildVersion = '', results = [] }) {
+  const normalizedEnvironment = requireEnvironment(environment);
+  const now = new Date().toISOString();
+  const saved = [];
+  database.exec('BEGIN');
+  try {
+    for (const result of Array.isArray(results) ? results : []) {
+      const testName = String(result?.testName || '').trim();
+      if (!testName) continue;
+      const suite = String(result?.testSuite || testSuite || 'CI').trim() || 'CI';
+      const status = normalizeTestStatus(result?.status);
+      const startedAt = result?.startedAt || result?.stoppedAt || now;
+      const stoppedAt = result?.stoppedAt || startedAt;
+      upsertTestResult.run(
+        siteOrigin,
+        normalizedEnvironment,
+        suite,
+        testName,
+        String(result?.buildVersion || buildVersion || ''),
+        status,
+        String(result?.error || ''),
+        startedAt,
+        stoppedAt,
+        now
+      );
+      saved.push({ testName, testSuite: suite, status });
+    }
+    database.exec('COMMIT');
+  } catch (error) {
+    database.exec('ROLLBACK');
+    throw error;
+  }
+  return { saved: saved.length };
+}
+
+function listFailedTests(siteOrigin, environment, dateRange = {}) {
+  const normalizedEnvironment = requireEnvironment(environment);
+  const { start, end } = normalizeDateRange(dateRange);
+  if (!start && !end) return listCurrentFailures.all(siteOrigin, normalizedEnvironment).map(toTestResult);
+  const params = [siteOrigin, normalizedEnvironment];
+  const sql = `${addDateRangeWhere("SELECT * FROM test_results WHERE site_origin = ? AND environment = ? AND status IN ('failed', 'timedOut', 'interrupted')", params, 'stopped_at', dateRange)} ORDER BY updated_at DESC`;
+  return database.prepare(sql).all(...params).map(toTestResult);
+}
+
+function toCoverageView(row) {
+  return {
+    id: row.id,
+    siteOrigin: row.site_origin,
+    name: row.name,
+    config: parseJson(row.config_json, {}),
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+function saveCoverageView({ siteOrigin = '', name = '', config = {} }) {
+  const viewName = String(name || '').trim();
+  if (!siteOrigin || !viewName) throw new Error('siteOrigin and name are required.');
+  const now = new Date().toISOString();
+  upsertCoverageView.run(siteOrigin, viewName, JSON.stringify(config && typeof config === 'object' ? config : {}), now, now);
+  return listCoverageViews(siteOrigin).find((view) => view.name === viewName);
+}
+
+function listCoverageViews(siteOrigin) {
+  return listCoverageViewsForOrigin.all(siteOrigin).map(toCoverageView);
+}
+
+function removeCoverageView(id, siteOrigin) {
+  return deleteCoverageViewForOrigin.run(Number(id), siteOrigin).changes > 0;
+}
+
 module.exports = {
   DATABASE_PATH,
   createSession,
@@ -286,4 +486,9 @@ module.exports = {
   saveDeltaCoverage,
   getDeltaCoverage,
   getTestingCycles,
+  saveTestResults,
+  listFailedTests,
+  saveCoverageView,
+  listCoverageViews,
+  removeCoverageView,
 };

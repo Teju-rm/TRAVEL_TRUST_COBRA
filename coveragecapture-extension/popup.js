@@ -6,6 +6,7 @@ const startBtn = document.getElementById('startBtn');
 const stopBtn = document.getElementById('stopBtn');
 const statusDiv = document.getElementById('status');
 const resultsDiv = document.getElementById('results');
+const runAutomaticCoverageBtn = document.getElementById('runAutomaticCoverageBtn');
 const runDeltaBtn = document.getElementById('runDeltaBtn');
 const bridgeServerUrl = 'http://localhost:4000';
 
@@ -203,6 +204,14 @@ async function refreshDetectedEnvironment() {
   return environment;
 }
 
+async function getActiveCoverageScope() {
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  const siteOrigin = getSiteOrigin(tab?.url);
+  const environment = await detectEnvironment(tab?.id);
+  if (!siteOrigin) throw new Error('Open a localhost application tab before running automated coverage.');
+  return { tab, siteOrigin, environment };
+}
+
 (async () => {
   const { latestCoverageResult } = await chrome.storage.local.get('latestCoverageResult');
   if (latestCoverageResult) {
@@ -299,21 +308,46 @@ stopBtn.addEventListener('click', async () => {
 });
 
 document.getElementById('historyBtn').addEventListener('click', async () => {
-  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-  const siteOrigin = getSiteOrigin(tab?.url);
-  const environment = await detectEnvironment(tab?.id);
-  const query = siteOrigin ? `?origin=${encodeURIComponent(siteOrigin)}&environment=${encodeURIComponent(environment)}` : '';
+  const { siteOrigin, environment } = await getActiveCoverageScope();
+  const suite = testSuiteInput.value || 'Manual';
+  const query = siteOrigin ? `?origin=${encodeURIComponent(siteOrigin)}&environment=${encodeURIComponent(environment)}&suite=${encodeURIComponent(suite)}` : '';
   chrome.tabs.create({ url: chrome.runtime.getURL(`history.html${query}`) });
 });
 
+runAutomaticCoverageBtn.addEventListener('click', async () => {
+  const testName = testNameInput.value.trim();
+  const testDescription = testDescInput.value.trim();
+  const requestedAction = testName || testDescription;
+  if (!requestedAction) return setStatus('Please enter the action to run, for example "admin login".', 'error');
+  runAutomaticCoverageBtn.disabled = true;
+  runDeltaBtn.disabled = true;
+  setStatus(`Running automatic coverage for "${requestedAction}"...`, 'recording');
+  try {
+    const { siteOrigin, environment } = await getActiveCoverageScope();
+    const response = await fetch(`${bridgeServerUrl}/run-automatic-coverage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ siteOrigin, environment, testName, testDescription }),
+    });
+    const result = await response.json().catch(() => null);
+    if (!response.ok) throw new Error(result?.error || `Run failed with ${response.status}`);
+    setStatus(`Automatic coverage complete for "${requestedAction}". Uploaded ${result?.uploadedSessions || 0} matching session(s).`, 'done');
+    const query = `origin=${encodeURIComponent(siteOrigin)}&environment=${encodeURIComponent(environment)}&suite=CI&action=${encodeURIComponent(requestedAction)}`;
+    chrome.tabs.create({ url: chrome.runtime.getURL(`history.html?${query}`) });
+  } catch (error) {
+    setStatus(`Could not run automatic coverage: ${error.message}`, 'error');
+  } finally {
+    runAutomaticCoverageBtn.disabled = false;
+    runDeltaBtn.disabled = false;
+  }
+});
+
 runDeltaBtn.addEventListener('click', async () => {
+  runAutomaticCoverageBtn.disabled = true;
   runDeltaBtn.disabled = true;
   setStatus('Running automated coverage and delta check...', 'recording');
   try {
-    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    const siteOrigin = getSiteOrigin(tab?.url);
-    const environment = await detectEnvironment(tab?.id);
-    if (!siteOrigin) throw new Error('Open a localhost application tab before running the delta check.');
+    const { siteOrigin, environment } = await getActiveCoverageScope();
     const response = await fetch(`${bridgeServerUrl}/run-delta-check`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -333,6 +367,7 @@ runDeltaBtn.addEventListener('click', async () => {
   } catch (error) {
     setStatus(`Could not run delta check: ${error.message}`, 'error');
   } finally {
+    runAutomaticCoverageBtn.disabled = false;
     runDeltaBtn.disabled = false;
   }
 });
